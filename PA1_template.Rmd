@@ -1,20 +1,140 @@
 # Reproducible Research: Peer Assessment 1
-
+`r opts_chunk$set(echo=TRUE)`
 
 ## Loading and preprocessing the data
-
-
+```{r loaddata}
+data <- read.table(unz("activity.zip", "activity.csv"),header=T,sep=",")
+head(data)
+```
 
 ## What is mean total number of steps taken per day?
+Histogram of the number of steps per day
+Log scale is used as otherwise the large number o 0 value would render this
+plot useless
+```{r histogram}
+my_hist = hist(data$steps, plot=FALSE)
+plot(my_hist$counts,log="y",type='h',lwd=10,lend=2,ylab="Log(Frequency)"
+     ,xlab="Steps",main="Steps histogram")
+```
+  
+Mean of the number of steps per day
+```{r mean}
+steps_mean <- aggregate(data$steps,by=list(data$date),FUN=mean,na.rm = TRUE)
+colnames(steps_mean) <- c("Date","Mean of Steps")
+steps_mean
+```
 
-
+Median of the number of steps per day
+```{r median}
+steps_median <- aggregate(data$steps,by=list(data$date),FUN=median,na.rm = TRUE)
+colnames(steps_median) <- c("Date","Median of Steps")
+steps_median
+```
 
 ## What is the average daily activity pattern?
 
+Plot of interval and average number of steps across all days
+```{r meanbyint}
+steps_by_int <- aggregate(data$steps,by=list(data$interval),FUN=mean,na.rm = TRUE)
+plot(steps_by_int, type="l",xlab="Interval",ylab="Mean number of steps")
+```
 
+Interval with maximum number of steps on average across all days in dataset
+```{r maxstepsinterval}
+max_steps <- max(steps_by_int[2])
+max_interval <- steps_by_int[(steps_by_int[2]==max_steps),1]
+```
+Interval number with highest average number of steps is `r max_interval`
 
 ## Imputing missing values
 
+Calculate missing values in dataset
+```{r countNAs}
+numNAs <- nrow(data[is.na(data),])
+```
+Total number of NAs in the dataset : `r numNAs`
 
+
+We will use the mean for the 5 minute interval across days to fill NA values
+This strategy was selected since there are several days with all NA values, so 
+picking the mean for each day to fill its own NA values is not possible
+```{r fillNAs}
+filled_data <- data
+colnames(steps_by_int) <- c("interval","stepsmean")
+for(id in 1:nrow(steps_by_int)) {
+    filled_data$steps[ is.na(filled_data$steps) 
+                       & filled_data$interval %in% steps_by_int$interval[id] ] <- round(steps_by_int$stepsmean[id])
+}
+```
+
+Histogram of the number of steps per day for dataset with no NAs
+```{r filleddatahistogram}
+my_hist = hist(filled_data$steps, plot=FALSE)
+plot(my_hist$counts,log="y",type='h',lwd=10,lend=2,ylab="Log(Frequency)"
+     ,xlab="Steps",main="Steps histogram")
+```
+  
+Mean of the number of steps per day for dataset with no NAs
+```{r filleddatamean}
+steps_mean <- aggregate(filled_data$steps,by=list(filled_data$date),FUN=mean)
+colnames(steps_mean) <- c("Date","Mean of Steps")
+steps_mean
+```
+
+Median of the number of steps per day for dataset with no NAs
+```{r filleddatamedian}
+steps_median <- aggregate(filled_data$steps,by=list(filled_data$date),FUN=median)
+colnames(steps_median) <- c("Date","Median of Steps")
+steps_median
+```
+
+
+As most NAs were restricted to certain days for which there was no data at all, the impact of this changes for other days is small. There are, however, some non-zero medians now, which, due to the way in which the missing data was imputed, represent the median of the averages for each interval across all days. This provides some insightful information.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+First a new factor variable is created with levels "weekday" and "weekend" based
+on date data
+```{r dayfactor}
+testday <- function(n){
+    
+    x <- as.POSIXlt(as.Date(n))$wday
+    if (x==0 | x ==6)
+        0
+    else 
+        1
+    
+}
+days = sapply(as.Date(filled_data$date),testday)
+day_factor = factor(days, levels=c(0,1), labels=c("weekend","weekday") )
+summary(day_factor)
+```
+Now bind it to the existing dataset with no NAs
+```{r binddayfactor}
+filled_data <- cbind(filled_data,day_factor)
+colnames(filled_data)[4] <- "day_type"
+summary(filled_data)
+```
+Generate the series by type of days for plotting
+```{r gendaytypeseries}
+
+weekdays_data <- filled_data[filled_data$day_type == "weekday",]
+weekdaysteps_by_int <- aggregate(weekdays_data$steps,by=list(weekdays_data$interval),FUN=mean)
+
+weekends_data <- filled_data[filled_data$day_type == "weekend",]
+weekendsteps_by_int <- aggregate(weekends_data$steps,by=list(weekends_data$interval),FUN=mean)
+```
+
+
+Plot comparing activity levels between weekdays and weekends
+```{r daytypecomparisonplot}
+par(mfrow=c(2,1))
+
+plot(weekdaysteps_by_int,type="l",xlab="Interval",ylab="Mean number of steps",main="Mean steps per interval on weekdays")
+plot(weekendsteps_by_int,type="l",xlab="Interval",ylab="Mean number of steps",main="Mean steps per interval on weekends")
+```
+
+This just resets drawing parameters
+```{r resetpar}
+par(mfrow=c(1,1))
+```
