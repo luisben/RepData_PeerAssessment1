@@ -1,0 +1,19 @@
+Title
+========================================================
+
+
+First the whole data is loaded,
+Since we will be comparing just the damage and injuries data, some of the other information is unnecesary for this analysis.
+So, we subset the data so only the columns we are interested in remain. 
+Immedately after, the events which produced no damages or fatalities nor injuries are also removed.
+
+```{r loadfile,cache=TRUE}
+stormdata <- read.csv("repdata_data_StormData.csv.bz2")
+```
+
+```{r processrawdata}
+wanted_cols = c("BGN_DATE","BGN_TIME","END_DATE","END_TIME","LENGTH","WIDTH","F","MAG","EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP","WFO","REFNUM")
+simple_storm_data <- stormdata[,wanted_cols]
+simple_storm_data <- simple_storm_data[(simple_storm_data$PROPDMG >0 | simple_storm_data$CROPDMG>0 | simple_storm_data$INJURIES>0 | simple_storm_data$FATALITIES >0),]
+```
+
